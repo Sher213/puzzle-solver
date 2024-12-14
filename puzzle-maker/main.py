@@ -2,6 +2,10 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 import random
+import copy
+
+DB = False
+BG_COL = (90, 90, 90)
 
 def generate_puzzle_matrix(rows, cols):
     matrix = np.zeros((rows, cols, 4), dtype=int)
@@ -34,7 +38,7 @@ def split_image(image_path, rows, cols):
 
     return pieces
 
-def modify_piece_with_tabs(piece, measurements, direction, neighbor_piece=None, action=0):
+def modify_piece_with_tabs(piece, measurements, direction, neighbor_piece=None, action=0, Debug=False):
     """
     Modify the piece to add or remove tabs derived from the neighbor piece.
     - direction: The side to modify ('left', 'top', 'right', 'bottom').
@@ -47,6 +51,9 @@ def modify_piece_with_tabs(piece, measurements, direction, neighbor_piece=None, 
     tab_height = measurements[0]
     tab_width = measurements[1]
 
+    tab_height_factor = int(tab_height // 1.5)
+    tab_width_factor = int(tab_width // 0.75)
+
     h = measurements[2]
     w = measurements[3]
 
@@ -57,33 +64,67 @@ def modify_piece_with_tabs(piece, measurements, direction, neighbor_piece=None, 
 
     if direction == 'right' and action == 1:
         # Add a tab from the left of the neighbor piece
-        #resize_piece[piece[top+(tab_height // 2):h-(tab_height//2), right:] = resize_neighbor_piece[top+(tab_height // 2):h-(tab_height//2), :tab_width]
-        #print (piece[top+(tab_height // 2):h-(tab_height//2), right:], top+(tab_height // 2), tab_height, right)
-        print(top+(tab_height//2), bottom-(tab_height//2), (tab_height // 2), h-(tab_height//2))
-        piece[top+(tab_height // 2):bottom-(tab_height//2), right:] = neighbor_piece[(tab_height // 2):h-(tab_height//2), -tab_width:]
+        piece[top+(tab_height_factor):bottom-(tab_height_factor), right:] = neighbor_piece[(tab_height_factor):h-(tab_height_factor), :tab_width]
     elif direction == 'bottom' and action == 1:
         # Add a tab from the top of the neighbor piece
-        piece[bottom:, left+(tab_width // 2):right-(tab_width //2)] = neighbor_piece[:tab_height, (tab_width // 2):w-(tab_width//2)]
+        piece[bottom:bottom+tab_height, left+(tab_width_factor):right-(tab_width_factor)] = neighbor_piece[:tab_height, (tab_width_factor):w-(tab_width_factor)]
+        
+        if Debug == True:
+            print("Neighbor Piece: Bottom")
+            plt.imshow(neighbor_piece)
+            plt.axis('off')
+            plt.show()
     elif direction == 'left' and action == 1:
         # Add a tab from the right of the neighbor piece
-        piece[top+(tab_height // 2):bottom-(tab_height//2), :left] = neighbor_piece[(tab_height // 2):h-(tab_height//2), :tab_width]
+        piece[top+(tab_height_factor):bottom-(tab_height_factor), :left] = neighbor_piece[(tab_height_factor):h-(tab_height_factor), w-tab_width:w]
+        #print(top+(tab_height_factor),bottom-(tab_height_factor), left,(tab_height_factor),h-(tab_height_factor), w-tab_width,w)
     elif direction == 'top' and action == 1:
         # Add a tab from the bottom of the neighbor piece
-        piece[:top, left+(tab_width // 2):right-(tab_width //2)] = neighbor_piece[:tab_height, (tab_width // 2):w-(tab_width//2)]
+        piece[:top, left+(tab_width_factor):right-(tab_width_factor)] = neighbor_piece[:tab_height, (tab_width_factor):w-(tab_width_factor)]
     
     elif direction == 'right' and action == -1:
-        piece[top+(tab_height // 2):bottom-(tab_height//2), right:] = 0
+        #piece = piece[:, :right]
+        piece[top+(tab_height_factor):bottom-(tab_height_factor), right-tab_width:right] = BG_COL
+
+        if Debug == True:
+            print("Right")
+            plt.imshow(piece)
+            plt.axis('off')
+            plt.show()
     elif direction == 'bottom' and action == -1:
-        piece[bottom:, left+(tab_width // 2):right-(tab_width //2)] = 0
+        #piece = piece[:bottom, :]
+        piece[bottom-tab_height:bottom, left+(tab_width_factor):right-(tab_width_factor)] = BG_COL
+        
+        if Debug == True:
+            print("Bottom")
+            plt.imshow(piece)
+            plt.axis('off')
+            plt.show()
     elif direction == 'left' and action == -1:
-        piece[top+(tab_height // 2):bottom-(tab_height//2), :left] = 0
+        #piece = piece[:, left:]
+        piece[top+(tab_height_factor):bottom-(tab_height_factor), left:left+tab_width] = BG_COL
+        
+        if Debug == True:
+            print("Left")
+            plt.imshow(piece)
+            plt.axis('off')
+            plt.show()
     elif direction == 'top' and action == -1:
-        piece[:top, left+(tab_width // 2):right-(tab_width //2)] = 0
+        #piece = piece[top:, :]
+        piece[top:top+tab_height, left+(tab_width_factor):right-(tab_width_factor)] = BG_COL
+        
+        if Debug == True:
+            print("Top")
+            plt.imshow(piece)
+            plt.axis('off')
+            plt.show()
 
     return piece
 
 def apply_matrix_to_pieces(pieces, puzzle_matrix):
     rows, cols, _ = puzzle_matrix.shape
+    pieces_copy = copy.deepcopy(pieces)
+
     for i in range(rows):
         for j in range(cols):
             piece = pieces[i][j]
@@ -94,17 +135,17 @@ def apply_matrix_to_pieces(pieces, puzzle_matrix):
             tab_height = h // 5
             measurments = [tab_height, tab_width, h, w]
 
-            resize_piece = np.full((h + 2 * tab_height, w + 2 * tab_width, 3), (0, 255, 0), dtype=np.uint8)
+            resize_piece = np.full((h + 2 * tab_height, w + 2 * tab_width, 3), BG_COL, dtype=np.uint8)
             resize_piece[tab_height:tab_height+h, tab_width:tab_width+w ] = piece
 
             if right != 0 and j < cols - 1:  
-                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'right', pieces[i][j + 1], action=right)
+                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'right', pieces_copy[i][j + 1], action=right, Debug=DB)
             if bottom != 0 and i < rows - 1:  
-                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'bottom', pieces[i + 1][j], action=bottom)
+                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'bottom', pieces_copy[i + 1][j], action=bottom, Debug=DB)
             if left != 0 and j > 0:  
-                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'left', pieces[i][j - 1], action=left)
+                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'left', pieces_copy[i][j - 1], action=left, Debug=DB)
             if top != 0 and i > 0:  
-                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'top', pieces[i - 1][j], action=top)
+                pieces[i][j] = modify_piece_with_tabs(resize_piece, measurments, 'top', pieces_copy[i - 1][j], action=top, Debug=DB)
 
     return pieces
 
@@ -116,8 +157,22 @@ def display_puzzle(pieces):
     # Assemble the image back from the puzzle pieces
     assembled_image = np.vstack([np.hstack(row) for row in pieces])
 
+    # Shuffle the pieces
+    flat_pieces = [piece for row in pieces for piece in row]  # Flatten the list of pieces
+    random.shuffle(flat_pieces)  # Shuffle the pieces
+    
+    # Rebuild the shuffled pieces into a 2D grid (same dimensions as the original puzzle)
+    shuffled_pieces = []
+    for i in range(rows):
+        shuffled_pieces.append(flat_pieces[i * cols:(i + 1) * cols])  # Rebuild rows
+
+    # Assemble the image back from the shuffled puzzle pieces
+    shuffled_image = np.vstack([np.hstack(row) for row in shuffled_pieces])
+
     # Show the assembled image
     plt.imshow(assembled_image)
+    plt.show()
+    plt.imshow(shuffled_image)
     plt.axis('off')
     plt.show()
 
