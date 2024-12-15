@@ -1,11 +1,15 @@
+import os
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+import base64
 import random
 import copy
+import pandas as pd
 
 DB = False
 BG_COL = (90, 90, 90)
+MIN_PIC_TO_SAVE = 200
 
 def generate_puzzle_matrix(rows, cols):
     matrix = np.zeros((rows, cols, 4), dtype=int)
@@ -176,7 +180,67 @@ def display_puzzle(pieces):
     plt.axis('off')
     plt.show()
 
-def main(image_path, rows, cols):
+def save_puzzle_images_cv2(pieces, assembled_path="assembled_image.png", shuffled_path="shuffled_image.png"):
+    """
+    Save the puzzle pieces as images in their original and shuffled states using OpenCV.
+
+    Args:
+        pieces (list of list of np.ndarray): 2D list of image pieces.
+        assembled_path (str): File path to save the assembled image.
+        shuffled_path (str): File path to save the shuffled image.
+    """
+    rows = len(pieces)
+    cols = len(pieces[0])
+
+    # Assemble the image back from the puzzle pieces
+    assembled_image = np.vstack([np.hstack(row) for row in pieces])
+
+    # Flatten and shuffle the pieces
+    flat_pieces = [piece for row in pieces for piece in row]
+    random.shuffle(flat_pieces)
+
+    # Rebuild the shuffled pieces into a 2D grid
+    shuffled_pieces = []
+    for i in range(rows):
+        shuffled_pieces.append(flat_pieces[i * cols:(i + 1) * cols])
+
+    # Assemble the shuffled image
+    shuffled_image = np.vstack([np.hstack(row) for row in shuffled_pieces])
+
+    # Convert images to uint8 if needed (OpenCV requires uint8 images)
+    if assembled_image.dtype != np.uint8:
+        # Ensure the image is in the correct range [0, 255] before converting
+        assembled_image = np.clip(255 * assembled_image, 0, 255).astype(np.uint8)
+    if shuffled_image.dtype != np.uint8:
+        shuffled_image = np.clip(255 * shuffled_image, 0, 255).astype(np.uint8)
+
+    # Check dimensions and save only if either height or width exceeds min pixels
+    if assembled_image.shape[0] > MIN_PIC_TO_SAVE or assembled_image.shape[1] > MIN_PIC_TO_SAVE:  # Height or Width of assembled_image
+        # Convert from RGB to BGR if needed (OpenCV uses BGR format)
+        if len(assembled_image.shape) == 3 and assembled_image.shape[2] == 3:  # Check if it's a color image
+            assembled_image = cv2.cvtColor(assembled_image, cv2.COLOR_RGB2BGR)
+            shuffled_image = cv2.cvtColor(shuffled_image, cv2.COLOR_RGB2BGR)
+
+        # Save images
+        cv2.imwrite(assembled_path, assembled_image)
+        cv2.imwrite(shuffled_path, shuffled_image)
+        return True
+    
+    return False
+
+def image_to_base64(image):
+    """Convert an image to base64 encoding."""
+    _, buffer = cv2.imencode('.png', image)
+    image_base64 = base64.b64encode(buffer).decode('utf-8')
+    return image_base64
+
+def file_to_base64(image_path):
+    """Convert an image file to base64 encoding."""
+    with open(image_path, "rb") as image_file:
+        image_base64 = base64.b64encode(image_file.read()).decode('utf-8')
+    return image_base64
+
+def create_puzzles_and_df(df, image_path, folder_substr, rows, cols):
     # Step 1: Generate puzzle matrix
     puzzle_matrix = generate_puzzle_matrix(rows, cols)
     #print("Puzzle Matrix:")
@@ -189,9 +253,47 @@ def main(image_path, rows, cols):
     pieces = apply_matrix_to_pieces(pieces, puzzle_matrix)
 
     # Step 4: Display the puzzle pieces
-    display_puzzle(pieces)
+    #display_puzzle(pieces)
 
-# Example usage
-image_path = 'cat.jpg'  # Replace with your image path
-rows, cols = 4, 4  # Number of rows and columns in the puzzle
-main(image_path, rows, cols)
+    #Step 5: Save the assembled and the shuffled pictures
+    assembled_path = os.path.join("./assembled", f"{folder_substr}-assembled.png")
+    shuffled_path = os.path.join("./shuffled", f"{folder_substr}-shuffled.png")
+    saved = save_puzzle_images_cv2(pieces, assembled_path, shuffled_path)
+    
+    if saved:
+        # Convert images to base64
+        assembled_base64 = file_to_base64(assembled_path)
+        shuffled_base64 = file_to_base64(shuffled_path)
+        original_base64 = file_to_base64(image_path)
+
+        # Step 6: Populate the DataFrame
+        single_piece_width, single_piece_height = pieces[0][0].shape[1], pieces[0][0].shape[0]
+        new_entry = pd.DataFrame([{
+            "name": [folder_substr],
+            "original_image": [original_base64],  # Store the base64-encoded original image
+            "assembled_puzzle": [assembled_base64],
+            "shuffled_puzzle": [shuffled_base64],
+            "puzzle_row_col": [f"{rows}x{cols}"],
+            "single_piece_width": [single_piece_width],
+            "single_piece_height": [single_piece_height]
+        }])
+
+        df = pd.concat([df, new_entry], ignore_index=True)
+    
+    return df
+
+
+#Perform function
+df = pd.DataFrame(columns=["name", "original_image", "assembled_puzzle", "shuffled_puzzle", "puzzle_row_col", "single_piece_width", "single_piece_height"])
+
+root_path = "../puzzles/Download-From-Google-Images/"
+for dir in os.listdir(root_path):
+    if not ("git" in dir or "download" in dir or "README" in dir):
+        for filename in os.listdir(os.path.join(root_path, dir)):
+            if not ".gif" in filename: 
+                image_path = os.path.join(root_path, dir, filename)
+                print(image_path)
+                row_col = random.randrange(4, 11)
+                df = create_puzzles_and_df(df, image_path, image_path.split(chr(92))[-1].split('.')[0], row_col, row_col)
+                print(df)
+df.to_csv("images-and-puzzles.csv")
