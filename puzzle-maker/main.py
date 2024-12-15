@@ -296,4 +296,5 @@ for dir in os.listdir(root_path):
                 row_col = random.randrange(4, 11)
                 df = create_puzzles_and_df(df, image_path, image_path.split(chr(92))[-1].split('.')[0], row_col, row_col)
                 print(df)
+
 df.to_csv("images-and-puzzles.csv")
