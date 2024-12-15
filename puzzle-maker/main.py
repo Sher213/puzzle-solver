@@ -269,13 +269,13 @@ def create_puzzles_and_df(df, image_path, folder_substr, rows, cols):
         # Step 6: Populate the DataFrame
         single_piece_width, single_piece_height = pieces[0][0].shape[1], pieces[0][0].shape[0]
         new_entry = pd.DataFrame([{
-            "name": [folder_substr],
-            "original_image": [original_base64],  # Store the base64-encoded original image
-            "assembled_puzzle": [assembled_base64],
-            "shuffled_puzzle": [shuffled_base64],
-            "puzzle_row_col": [f"{rows}x{cols}"],
-            "single_piece_width": [single_piece_width],
-            "single_piece_height": [single_piece_height]
+            "name": folder_substr,
+            "original_image": original_base64,  # Store the base64-encoded original image
+            "assembled_puzzle": assembled_base64,
+            "shuffled_puzzle": shuffled_base64,
+            "puzzle_row_col": rows,
+            "single_piece_width": single_piece_width,
+            "single_piece_height": single_piece_height
         }])
 
         df = pd.concat([df, new_entry], ignore_index=True)
@@ -293,7 +293,7 @@ for dir in os.listdir(root_path):
             if not ".gif" in filename: 
                 image_path = os.path.join(root_path, dir, filename)
                 print(image_path)
-                row_col = random.randrange(4, 11)
+                row_col = random.randrange(4, 9)
                 df = create_puzzles_and_df(df, image_path, image_path.split(chr(92))[-1].split('.')[0], row_col, row_col)
                 print(df)
 
