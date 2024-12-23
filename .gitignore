@@ -1,0 +1,10 @@
+puzzles/
+*/shuffled*/
+*/assembled*/
+images-and-puzzles.csv
+tiled-numbered2739.csv
+puzzles-numbered-csv/
+check_gpu.py
+data/
+pieces/
+.vscode/
