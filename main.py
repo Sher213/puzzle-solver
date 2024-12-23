@@ -414,11 +414,11 @@ def main():
     # 3. Saves each piece as an individual image
     # 4. Saves the pieces path to a csv along with its normalized position
     print("Saving pieces...")
-    save_pieces_and_to_csv()
+    #save_pieces_and_to_csv()
 
     #split the test data into test and train dirs then get the data as train and evaluation data
     print("Splitting the pieces into train, val and test.")
-    split_data(input_dir=f"{PIECES_IMAGE_PATH}/")
+    #split_data(input_dir=f"{PIECES_IMAGE_PATH}/")
     print("Splitting done.")
     print("...")
     train_gen, val_gen = gen_train_test_gen()
@@ -426,11 +426,11 @@ def main():
     print("Generated train and val data.")
 
     print("Training model...")
-    model, history = make_and_train_cnn(train_gen, val_gen)
+    #model, history = make_and_train_cnn(train_gen, val_gen)
     print("Model Trained.")
 
     print("Saving model.")
-    model.save("cnn_model_puzzle_predictor.h5")
+    #model.save("cnn_model_puzzle_predictor.h5")
     print("Model saved.")
 
     print("Loading model.")
